@@ -3,8 +3,11 @@ package com.nexuspay.wallet.service;
 import com.nexuspay.wallet.dto.LoginDTO;
 import com.nexuspay.wallet.dto.UserDTO;
 import com.nexuspay.wallet.entity.User;
+import com.nexuspay.wallet.exception.EmailAlreadyExistsException;
+import com.nexuspay.wallet.exception.UserNotFoundException;
 import com.nexuspay.wallet.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,29 +20,36 @@ public class AuthService {
     @Autowired
     private WalletService walletService;
 
+    // BCrypt para encriptar contraseñas — nunca guardar texto plano
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
     @Transactional
-    public void register(UserDTO dto) {
+    public User register(UserDTO dto) {
+        // Usamos nuestra excepción custom en lugar de RuntimeException
         if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new RuntimeException("El email ya está registrado.");
+            throw new EmailAlreadyExistsException(dto.getEmail());
         }
 
         User user = new User();
         user.setFullName(dto.getFullName());
         user.setEmail(dto.getEmail());
-        user.setPassword(dto.getPassword());
+        // La contraseña se guarda encriptada
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
 
         userRepository.save(user);
         walletService.createAccountForUser(user);
+
+        return user;
     }
 
     public User login(LoginDTO loginDto) {
-        // Buscamos al usuario o lanzamos error si no existe
+        // Si no existe el email, lanzamos excepción custom
         User user = userRepository.findByEmail(loginDto.getEmail())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new UserNotFoundException(loginDto.getEmail()));
 
-        // Verificamos la contraseña (texto plano por ahora)
-        if (!user.getPassword().equals(loginDto.getPassword())) {
-            throw new RuntimeException("Contraseña incorrecta");
+        // BCrypt compara el texto plano con el hash guardado
+        if (!passwordEncoder.matches(loginDto.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Contraseña incorrecta.");
         }
 
         return user;
