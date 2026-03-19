@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusPay — Login</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="login-wrapper">
+    <div class="login-card">
+
+        <!-- Logo -->
+        <div class="login-logo">
+            <h1>NEXUS<span>PAY</span></h1>
+            <p>Tu billetera digital</p>
+        </div>
+
+        <!-- Tabs Login / Registro -->
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="showTab('login')">Iniciar sesión</button>
+            <button class="tab-btn" onclick="showTab('register')">Registrarse</button>
+        </div>
+
+        <!-- Alerta -->
+        <div id="alert" class="alert"></div>
+
+        <!-- Formulario Login -->
+        <div id="form-login">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" id="login-email" class="form-control" placeholder="tu@email.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contraseña</label>
+                <input type="password" id="login-password" class="form-control" placeholder="••••••••">
+            </div>
+            <button class="btn-green" onclick="login()">Ingresar</button>
+        </div>
+
+        <!-- Formulario Registro -->
+        <div id="form-register" style="display:none">
+            <div class="form-group">
+                <label class="form-label">Nombre completo</label>
+                <input type="text" id="reg-name" class="form-control" placeholder="Juan García">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" id="reg-email" class="form-control" placeholder="tu@email.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contraseña</label>
+                <input type="password" id="reg-password" class="form-control" placeholder="••••••••">
+            </div>
+            <button class="btn-green" onclick="register()">Crear cuenta</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const API = 'http://localhost:8081/api';
+
+    // Cambia entre tab de login y registro
+    function showTab(tab) {
+        document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+        document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+        document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+            btn.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+        });
+        hideAlert();
+    }
+
+    // Muestra un mensaje de alerta
+    function showAlert(message, type) {
+        const alert = document.getElementById('alert');
+        alert.textContent = message;
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+    }
+
+    function hideAlert() {
+        document.getElementById('alert').style.display = 'none';
+    }
+
+    // Login
+    async function login() {
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value.trim();
+
+        if (!email || !password) {
+            showAlert('Completá todos los campos.', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                // Guardamos los datos del usuario en sessionStorage
+                sessionStorage.setItem('user', JSON.stringify(data));
+                window.location.href = 'dashboard.html';
+            } else {
+                showAlert(data.message || 'Credenciales incorrectas.', 'error');
+            }
+        } catch (error) {
+            showAlert('No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    // Registro
+    async function register() {
+        const fullName = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const password = document.getElementById('reg-password').value.trim();
+
+        if (!fullName || !email || !password) {
+            showAlert('Completá todos los campos.', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fullName, email, password })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                showAlert('¡Cuenta creada exitosamente! Ya podés iniciar sesión.', 'success');
+                showTab('login');
+            } else {
+                showAlert(data.message || 'Error al registrarse.', 'error');
+            }
+        } catch (error) {
+            showAlert('No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    // Si ya está logueado, redirigir al dashboard
+    if (sessionStorage.getItem('user')) {
+        window.location.href = 'dashboard.html';
+    }
+</script>
+
+</body>
+</html>
