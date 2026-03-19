@@ -1,7 +1,10 @@
 package com.nexuspay.wallet.controller;
 
+import com.nexuspay.wallet.dto.LoginDTO;
 import com.nexuspay.wallet.dto.UserDTO;
-import com.nexuspay.wallet.service.WalletService;
+import com.nexuspay.wallet.entity.User;
+import com.nexuspay.wallet.service.AuthService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,24 +12,27 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final WalletService walletService;
-
-    // Inyección por constructor (Práctica recomendada Senior)
-    public AuthController(WalletService walletService) {
-        this.walletService = walletService;
-    }
+    @Autowired
+    private AuthService authService;
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody UserDTO userDto) {
         try {
-            walletService.registerUser(
-                userDto.getEmail(), 
-                userDto.getPassword(), 
-                userDto.getFullName()
-            );
+            authService.register(userDto);
             return ResponseEntity.ok("Usuario registrado exitosamente y cuenta vinculada.");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error al registrar: " + e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginDTO loginDto) {
+        try {
+            User user = authService.login(loginDto);
+            return ResponseEntity.ok("Login exitoso. Bienvenido " + user.getFullName());
+        } catch (RuntimeException e) {
+            // 401 Unauthorized es el código correcto para fallos de login
+            return ResponseEntity.status(401).body("Error de autenticación: " + e.getMessage());
         }
     }
 }
