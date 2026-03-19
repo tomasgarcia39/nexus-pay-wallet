@@ -2,9 +2,11 @@ package com.nexuspay.wallet.controller;
 
 import com.nexuspay.wallet.dto.LoginDTO;
 import com.nexuspay.wallet.dto.UserDTO;
+import com.nexuspay.wallet.dto.UserResponseDTO;
 import com.nexuspay.wallet.entity.User;
 import com.nexuspay.wallet.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,23 +18,26 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody UserDTO userDto) {
-        try {
-            authService.register(userDto);
-            return ResponseEntity.ok("Usuario registrado exitosamente y cuenta vinculada.");
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
-        }
+    public ResponseEntity<UserResponseDTO> register(@RequestBody UserDTO userDto) {
+        User user = authService.register(userDto);
+        UserResponseDTO response = new UserResponseDTO(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getAccount().getAccountNumber()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginDTO loginDto) {
-        try {
-            User user = authService.login(loginDto);
-            return ResponseEntity.ok("Login exitoso. Bienvenido " + user.getFullName());
-        } catch (RuntimeException e) {
-            // 401 Unauthorized es el código correcto para fallos de login
-            return ResponseEntity.status(401).body("Error de autenticación: " + e.getMessage());
-        }
+    public ResponseEntity<UserResponseDTO> login(@RequestBody LoginDTO loginDto) {
+        User user = authService.login(loginDto);
+        UserResponseDTO response = new UserResponseDTO(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getAccount().getAccountNumber()
+        );
+        return ResponseEntity.ok(response);
     }
 }

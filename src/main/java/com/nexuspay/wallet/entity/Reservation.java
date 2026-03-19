@@ -1,13 +1,10 @@
 package com.nexuspay.wallet.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Representa una reserva de dinero en la cuenta.
- * El saldo reservado queda "retenido" hasta confirmar o cancelar.
- */
 @Entity
 @Table(name = "reservations")
 public class Reservation {
@@ -20,12 +17,12 @@ public class Reservation {
 
     private String description;
 
-    // PENDING = activa, CONFIRMED = cobrada, CANCELLED = cancelada
     @Enumerated(EnumType.STRING)
     private ReservationStatus status;
 
     private LocalDateTime createdAt;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "account_id")
     private Account account;
@@ -35,7 +32,6 @@ public class Reservation {
         this.status = ReservationStatus.PENDING;
     }
 
-    // Getters y Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

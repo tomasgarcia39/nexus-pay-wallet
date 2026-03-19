@@ -1,5 +1,6 @@
 package com.nexuspay.wallet.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.util.List;
@@ -17,16 +18,18 @@ public class Account {
 
     private BigDecimal balance;
 
-    // Saldo reservado — no disponible para transferencias
     private BigDecimal reservedBalance;
 
+    @JsonIgnore
     @OneToOne
     @JoinColumn(name = "user_id")
     private User user;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
     private List<Transaction> transactions;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL)
     private List<Reservation> reservations;
 
@@ -35,7 +38,6 @@ public class Account {
         this.reservedBalance = BigDecimal.ZERO;
     }
 
-    // Getters y Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

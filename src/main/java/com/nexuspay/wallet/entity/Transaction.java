@@ -1,13 +1,10 @@
 package com.nexuspay.wallet.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Registra cada movimiento de dinero en una cuenta.
- * CREDIT = entra dinero, DEBIT = sale dinero.
- */
 @Entity
 @Table(name = "transactions")
 public class Transaction {
@@ -19,12 +16,13 @@ public class Transaction {
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
-    private TransactionType type; // CREDIT o DEBIT
+    private TransactionType type;
 
     private String description;
 
     private LocalDateTime timestamp;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "account_id")
     private Account account;
@@ -33,7 +31,6 @@ public class Transaction {
         this.timestamp = LocalDateTime.now();
     }
 
-    // Getters y Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
