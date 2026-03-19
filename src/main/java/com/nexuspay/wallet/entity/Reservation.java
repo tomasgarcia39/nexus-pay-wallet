@@ -5,12 +5,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Registra cada movimiento de dinero en una cuenta.
- * CREDIT = entra dinero, DEBIT = sale dinero.
+ * Representa una reserva de dinero en la cuenta.
+ * El saldo reservado queda "retenido" hasta confirmar o cancelar.
  */
 @Entity
-@Table(name = "transactions")
-public class Transaction {
+@Table(name = "reservations")
+public class Reservation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,19 +18,21 @@ public class Transaction {
 
     private BigDecimal amount;
 
-    @Enumerated(EnumType.STRING)
-    private TransactionType type; // CREDIT o DEBIT
-
     private String description;
 
-    private LocalDateTime timestamp;
+    // PENDING = activa, CONFIRMED = cobrada, CANCELLED = cancelada
+    @Enumerated(EnumType.STRING)
+    private ReservationStatus status;
+
+    private LocalDateTime createdAt;
 
     @ManyToOne
     @JoinColumn(name = "account_id")
     private Account account;
 
-    public Transaction() {
-        this.timestamp = LocalDateTime.now();
+    public Reservation() {
+        this.createdAt = LocalDateTime.now();
+        this.status = ReservationStatus.PENDING;
     }
 
     // Getters y Setters
@@ -40,14 +42,14 @@ public class Transaction {
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
 
-    public TransactionType getType() { return type; }
-    public void setType(TransactionType type) { this.type = type; }
-
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public ReservationStatus getStatus() { return status; }
+    public void setStatus(ReservationStatus status) { this.status = status; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     public Account getAccount() { return account; }
     public void setAccount(Account account) { this.account = account; }
