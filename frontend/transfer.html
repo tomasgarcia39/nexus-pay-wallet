@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusPay — Transferir</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">NEXUS<span>PAY</span></a>
+    <div class="nav-user">
+        <span id="nav-username"></span>
+        <button class="btn-danger" onclick="logout()">Salir</button>
+    </div>
+</nav>
+
+<div class="page-wrapper">
+
+    <h1 class="page-title">Transferir dinero</h1>
+
+    <!-- Saldo disponible -->
+    <div class="card-green" style="padding:1.2rem 1.5rem;">
+        <div class="balance-label">Saldo disponible</div>
+        <div class="balance-amount" style="font-size:1.8rem;">
+            <span>$</span><span id="available-balance">0.00</span>
+        </div>
+    </div>
+
+    <!-- Formulario de transferencia -->
+    <div class="card">
+        <div id="alert" class="alert"></div>
+
+        <div class="form-group">
+            <label class="form-label">Cuenta destino</label>
+            <input type="text" id="receiver-account" class="form-control"
+                placeholder="ACC-XXXXXXXX" style="font-family: monospace;">
+            <small style="color:var(--text-muted); font-size:0.8rem; margin-top:0.4rem; display:block;">
+                Ingresá el número de cuenta del destinatario
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Monto a transferir</label>
+            <div style="position:relative;">
+                <span style="position:absolute; left:1rem; top:50%; transform:translateY(-50%);
+                    color:var(--text-muted); font-weight:600;">$</span>
+                <input type="number" id="amount" class="form-control"
+                    placeholder="0.00" min="0.01" step="0.01"
+                    style="padding-left:2rem;">
+            </div>
+        </div>
+
+        <button class="btn-green" onclick="transfer()" id="btn-transfer">
+            Enviar dinero 💸
+        </button>
+    </div>
+
+    <!-- Modal de confirmación -->
+    <div id="confirm-modal" style="display:none; position:fixed; inset:0;
+        background:rgba(0,0,0,0.8); z-index:999; align-items:center; justify-content:center;">
+        <div class="card" style="max-width:400px; width:90%; margin:0;">
+            <h3 style="margin-bottom:1rem; font-size:1.1rem;">Confirmar transferencia</h3>
+            <p style="color:var(--text-secondary); margin-bottom:0.5rem;">Destinatario:</p>
+            <p id="confirm-account" style="font-family:monospace; color:var(--green-primary);
+                margin-bottom:1rem; font-size:1rem;"></p>
+            <p style="color:var(--text-secondary); margin-bottom:0.5rem;">Monto:</p>
+            <p id="confirm-amount" style="font-size:1.8rem; font-weight:700;
+                color:var(--text-primary); margin-bottom:1.5rem;"></p>
+            <div style="display:flex; gap:1rem;">
+                <button class="btn-outline" onclick="closeModal()">Cancelar</button>
+                <button class="btn-green" onclick="confirmTransfer()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const API = 'http://localhost:8081/api';
+
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user) window.location.href = 'index.html';
+
+    document.getElementById('nav-username').textContent = user.fullName;
+
+    // Cargar saldo disponible
+    async function loadBalance() {
+        try {
+            const res = await fetch(`${API}/wallet/${user.id}/balance`);
+            const data = await res.json();
+            document.getElementById('available-balance').textContent =
+                parseFloat(data.availableBalance).toLocaleString('es-AR', { minimumFractionDigits: 2 });
+        } catch (error) {
+            console.error('Error cargando saldo:', error);
+        }
+    }
+
+    function showAlert(message, type) {
+        const alert = document.getElementById('alert');
+        alert.textContent = message;
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+        // Auto-ocultar después de 5 segundos
+        setTimeout(() => alert.style.display = 'none', 5000);
+    }
+
+    // Validar y mostrar modal de confirmación
+    function transfer() {
+        const account = document.getElementById('receiver-account').value.trim();
+        const amount = parseFloat(document.getElementById('amount').value);
+
+        if (!account) {
+            showAlert('Ingresá el número de cuenta destino.', 'error');
+            return;
+        }
+        if (!amount || amount <= 0) {
+            showAlert('Ingresá un monto válido.', 'error');
+            return;
+        }
+        if (account === user.accountNumber) {
+            showAlert('No podés transferirte dinero a vos mismo.', 'error');
+            return;
+        }
+
+        // Mostrar modal de confirmación
+        document.getElementById('confirm-account').textContent = account;
+        document.getElementById('confirm-amount').textContent =
+            '$' + amount.toLocaleString('es-AR', { minimumFractionDigits: 2 });
+        document.getElementById('confirm-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('confirm-modal').style.display = 'none';
+    }
+
+    // Ejecutar transferencia
+    async function confirmTransfer() {
+        const account = document.getElementById('receiver-account').value.trim();
+        const amount = parseFloat(document.getElementById('amount').value);
+
+        closeModal();
+
+        const btn = document.getElementById('btn-transfer');
+        btn.textContent = 'Procesando...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${API}/wallet/transfer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderUserId: user.id,
+                    receiverAccountNumber: account,
+                    amount: amount
+                })
+            });
+
+            if (res.ok) {
+                showAlert('¡Transferencia realizada exitosamente!', 'success');
+                document.getElementById('receiver-account').value = '';
+                document.getElementById('amount').value = '';
+                loadBalance(); // Actualizar saldo
+            } else {
+                const data = await res.json();
+                showAlert(data.message || 'Error al realizar la transferencia.', 'error');
+            }
+        } catch (error) {
+            showAlert('No se pudo conectar con el servidor.', 'error');
+        } finally {
+            btn.textContent = 'Enviar dinero 💸';
+            btn.disabled = false;
+        }
+    }
+
+    function logout() {
+        sessionStorage.removeItem('user');
+        window.location.href = 'index.html';
+    }
+
+    loadBalance();
+</script>
+
+</body>
+</html>

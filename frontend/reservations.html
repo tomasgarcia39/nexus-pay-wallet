@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusPay — Reservas</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <a class="navbar-brand" href="dashboard.html">NEXUS<span>PAY</span></a>
+    <div class="nav-user">
+        <span id="nav-username"></span>
+        <button class="btn-danger" onclick="logout()">Salir</button>
+    </div>
+</nav>
+
+<div class="page-wrapper">
+
+    <h1 class="page-title">Reservas de dinero</h1>
+
+    <!-- Saldo disponible -->
+    <div class="card-green" style="padding:1.2rem 1.5rem;">
+        <div class="balance-label">Saldo disponible</div>
+        <div class="balance-amount" style="font-size:1.8rem;">
+            <span>$</span><span id="available-balance">0.00</span>
+        </div>
+        <div class="balance-reserved" id="balance-reserved"></div>
+    </div>
+
+    <!-- Formulario nueva reserva -->
+    <div class="card">
+        <h2 style="font-size:1rem; margin-bottom:1.2rem; color:var(--text-secondary);
+            text-transform:uppercase; letter-spacing:1px;">Nueva reserva</h2>
+
+        <div id="alert-create" class="alert"></div>
+
+        <div class="form-group">
+            <label class="form-label">Descripción</label>
+            <input type="text" id="res-description" class="form-control"
+                placeholder="Ej: Pago de alquiler, Compra online...">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Monto a reservar</label>
+            <div style="position:relative;">
+                <span style="position:absolute; left:1rem; top:50%; transform:translateY(-50%);
+                    color:var(--text-muted); font-weight:600;">$</span>
+                <input type="number" id="res-amount" class="form-control"
+                    placeholder="0.00" min="0.01" step="0.01"
+                    style="padding-left:2rem;">
+            </div>
+        </div>
+
+        <button class="btn-green" onclick="createReservation()">
+            🔒 Reservar dinero
+        </button>
+    </div>
+
+    <!-- Lista de reservas -->
+    <div class="card">
+        <h2 style="font-size:1rem; margin-bottom:1.2rem; color:var(--text-secondary);
+            text-transform:uppercase; letter-spacing:1px;">Mis reservas</h2>
+        <div id="reservations-list">
+            <div class="empty-state">
+                <div class="empty-icon">🔒</div>
+                <p>Cargando reservas...</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const API = 'http://localhost:8081/api';
+
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user) window.location.href = 'index.html';
+
+    document.getElementById('nav-username').textContent = user.fullName;
+
+    function showAlert(id, message, type) {
+        const alert = document.getElementById(id);
+        alert.textContent = message;
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+        setTimeout(() => alert.style.display = 'none', 5000);
+    }
+
+    // Cargar saldo
+    async function loadBalance() {
+        try {
+            const res = await fetch(`${API}/wallet/${user.id}/balance`);
+            const data = await res.json();
+            document.getElementById('available-balance').textContent =
+                parseFloat(data.availableBalance).toLocaleString('es-AR', { minimumFractionDigits: 2 });
+
+            if (parseFloat(data.reservedBalance) > 0) {
+                document.getElementById('balance-reserved').textContent =
+                    `🔒 $${parseFloat(data.reservedBalance).toLocaleString('es-AR', { minimumFractionDigits: 2 })} reservado`;
+            } else {
+                document.getElementById('balance-reserved').textContent = '';
+            }
+        } catch (error) {
+            console.error('Error cargando saldo:', error);
+        }
+    }
+
+    // Crear reserva
+    async function createReservation() {
+        const description = document.getElementById('res-description').value.trim();
+        const amount = parseFloat(document.getElementById('res-amount').value);
+
+        if (!description) {
+            showAlert('alert-create', 'Ingresá una descripción.', 'error');
+            return;
+        }
+        if (!amount || amount <= 0) {
+            showAlert('alert-create', 'Ingresá un monto válido.', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API}/reservations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.id,
+                    amount: amount,
+                    description: description
+                })
+            });
+
+            if (res.ok) {
+                showAlert('alert-create', '¡Reserva creada exitosamente!', 'success');
+                document.getElementById('res-description').value = '';
+                document.getElementById('res-amount').value = '';
+                loadBalance();
+                loadReservations();
+            } else {
+                const data = await res.json();
+                showAlert('alert-create', data.message || 'Error al crear la reserva.', 'error');
+            }
+        } catch (error) {
+            showAlert('alert-create', 'No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    // Cargar reservas
+    async function loadReservations() {
+        try {
+            const res = await fetch(`${API}/reservations/user/${user.id}`);
+            const data = await res.json();
+
+            const container = document.getElementById('reservations-list');
+
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔒</div>
+                        <p>No tenés reservas activas</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = data.map(r => `
+                <div class="reservation-item" id="res-${r.id}">
+                    <div class="reservation-info">
+                        <div class="reservation-desc">${r.description}</div>
+                        <div class="reservation-amount">
+                            $${parseFloat(r.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        </div>
+                        <div style="margin-top:0.3rem;">
+                            <span class="badge badge-${r.status.toLowerCase()}">${translateStatus(r.status)}</span>
+                        </div>
+                    </div>
+                    ${r.status === 'PENDING' ? `
+                    <div class="reservation-actions">
+                        <button class="btn-confirm" onclick="confirmReservation(${r.id})">✓ Liberar</button>
+                        <button class="btn-danger" onclick="cancelReservation(${r.id})">✕ Cancelar</button>
+                    </div>` : ''}
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Error cargando reservas:', error);
+        }
+    }
+
+    // Confirmar reserva — libera el dinero de vuelta al saldo
+    async function confirmReservation(id) {
+        try {
+            const res = await fetch(`${API}/reservations/${id}/confirm`, { method: 'PUT' });
+            if (res.ok) {
+                showAlert('alert-create', 'Reserva liberada. El dinero volvió a tu saldo disponible.', 'success');
+                loadBalance();
+                loadReservations();
+            } else {
+                const data = await res.json();
+                showAlert('alert-create', data.message || 'Error al liberar la reserva.', 'error');
+            }
+        } catch (error) {
+            showAlert('alert-create', 'No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    // Cancelar reserva
+    async function cancelReservation(id) {
+        try {
+            const res = await fetch(`${API}/reservations/${id}/cancel`, { method: 'PUT' });
+            if (res.ok) {
+                showAlert('alert-create', 'Reserva cancelada. El saldo fue liberado.', 'success');
+                loadBalance();
+                loadReservations();
+            } else {
+                const data = await res.json();
+                showAlert('alert-create', data.message || 'Error al cancelar.', 'error');
+            }
+        } catch (error) {
+            showAlert('alert-create', 'No se pudo conectar con el servidor.', 'error');
+        }
+    }
+
+    function translateStatus(status) {
+        const map = {
+            'PENDING': 'Pendiente',
+            'CONFIRMED': 'Liberada',
+            'CANCELLED': 'Cancelada'
+        };
+        return map[status] || status;
+    }
+
+    function logout() {
+        sessionStorage.removeItem('user');
+        window.location.href = 'index.html';
+    }
+
+    loadBalance();
+    loadReservations();
+</script>
+
+</body>
+</html>

@@ -26,12 +26,14 @@ public class ReservationService {
     @Autowired
     private WalletService walletService;
 
-   
+    /**
+     * Crea una reserva de dinero.
+     * El monto queda retenido pero no se descuenta del saldo todavía.
+     */
     @Transactional
     public Reservation createReservation(Long userId, BigDecimal amount, String description) {
         Account account = walletService.getAccountByUserId(userId);
 
-        // Verificamos que haya saldo disponible para reservar
         BigDecimal availableBalance = account.getBalance()
                 .subtract(account.getReservedBalance());
 
@@ -39,21 +41,20 @@ public class ReservationService {
             throw new InsufficientFundsException();
         }
 
-        // Aumentamos el saldo reservado
         account.setReservedBalance(account.getReservedBalance().add(amount));
         accountRepository.save(account);
 
-        // Creamos la reserva
         Reservation reservation = new Reservation();
         reservation.setAmount(amount);
         reservation.setDescription(description);
         reservation.setAccount(account);
-        // status = PENDING se setea en el constructor de Reservation
 
         return reservationRepository.save(reservation);
     }
 
-    
+    /**
+     * Confirma una reserva: libera el dinero de vuelta al saldo disponible.
+     */
     @Transactional
     public Reservation confirmReservation(Long reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId)
@@ -65,8 +66,7 @@ public class ReservationService {
 
         Account account = reservation.getAccount();
 
-        // Descontamos del saldo real y liberamos el saldo reservado
-        account.setBalance(account.getBalance().subtract(reservation.getAmount()));
+        // Liberamos el saldo reservado — el balance vuelve a estar disponible
         account.setReservedBalance(account.getReservedBalance().subtract(reservation.getAmount()));
         accountRepository.save(account);
 
@@ -74,7 +74,9 @@ public class ReservationService {
         return reservationRepository.save(reservation);
     }
 
-   
+    /**
+     * Cancela una reserva: libera el saldo retenido.
+     */
     @Transactional
     public Reservation cancelReservation(Long reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId)
@@ -86,7 +88,6 @@ public class ReservationService {
 
         Account account = reservation.getAccount();
 
-        // Solo liberamos el saldo reservado, el balance no cambia
         account.setReservedBalance(account.getReservedBalance().subtract(reservation.getAmount()));
         accountRepository.save(account);
 
@@ -94,7 +95,9 @@ public class ReservationService {
         return reservationRepository.save(reservation);
     }
 
-    
+    /**
+     * Lista todas las reservas de un usuario.
+     */
     public List<Reservation> getReservationsByUser(Long userId) {
         Account account = walletService.getAccountByUserId(userId);
         return reservationRepository.findByAccountId(account.getId());
